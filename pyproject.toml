@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-ianews = "ianews.cli:app"
+ianews = "ianews.cli:main"
 
 [build-system]
 requires = ["hatchling"]

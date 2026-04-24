@@ -4,6 +4,7 @@ import os
 import webbrowser
 from pathlib import Path
 
+import httpx
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -13,6 +14,7 @@ from ianews.db import list_articles, list_sources, session, upsert_source, inser
 from ianews.external_runner import load_external_feed, synthetic_feed_url
 from ianews.feeds import discover_feed_url, fetch_feed_latest, take_latest_entries
 from ianews.filter import match_keywords, should_include
+from ianews.digest import articles_to_brief, build_messages, run_digest
 
 app = typer.Typer(no_args_is_help=True, help="Agregador de noticias sobre IA (RSS/Atom + SQLite).")
 console = Console()
@@ -168,6 +170,74 @@ def sources(
         src = list_sources(conn)
     for r in src:
         console.print(f"• [bold]{r['name']}[/bold]\n  {r['feed_url']}")
+
+
+@app.command()
+def digest(
+    limit: int = typer.Option(35, "--limit", "-n", min=1, max=200, help="Número de entradas recientes a enviar al modelo."),
+    source: str | None = typer.Option(None, "--source", "-s", help="Solo artículos de esta fuente (nombre o feed_url)."),
+    provider: str = typer.Option(
+        "openai",
+        "--provider",
+        "-p",
+        help="openai (API compatible Chat Completions) u ollama (servidor local).",
+    ),
+    model: str | None = typer.Option(None, "--model", "-m", help="Modelo (p. ej. gpt-4o-mini, llama3.2)."),
+    lang: str = typer.Option("es", "--lang", "-l", help="es o en (instrucciones y tono del boletín)."),
+    api_key: str | None = typer.Option(None, "--api-key", help="Sobrescribe OPENAI_API_KEY (no recomendado en shell compartido)."),
+    base_url: str | None = typer.Option(None, "--base-url", help="Base URL API OpenAI-compatible (por defecto OPENAI_BASE_URL o api.openai.com)."),
+    ollama_url: str | None = typer.Option(None, "--ollama-url", help="URL base de Ollama (por defecto http://127.0.0.1:11434)."),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Guardar el texto en un fichero (UTF-8)."),
+    context_only: bool = typer.Option(False, "--context-only", help="Solo imprime el texto enviado al modelo (sin llamar al LLM)."),
+    db: Path | None = typer.Option(None, "--db"),
+) -> None:
+    """Genera un boletín/resumen con un LLM a partir de las entradas en SQLite."""
+    db_path = db or _default_db_path()
+    if not db_path.is_file():
+        console.print(f"[red]No existe la base de datos {db_path}. Ejecuta `ianews fetch` primero.[/red]")
+        raise typer.Exit(code=1)
+    if context_only:
+        with session(db_path) as conn:
+            rows = list_articles(conn, limit=limit, source=source)
+        if not rows:
+            console.print("[yellow]No hay artículos.[/yellow]")
+            raise typer.Exit(code=1)
+        system, user = build_messages(articles_to_brief(rows), lang=lang)
+        console.print("[bold]--- system ---[/bold]\n")
+        console.print(system)
+        console.print("\n[bold]--- user ---[/bold]\n")
+        console.print(user)
+        raise typer.Exit(code=0)
+    try:
+        text = run_digest(
+            db_path,
+            limit=limit,
+            source=source,
+            provider=provider,
+            model=model,
+            lang=lang,
+            api_key=api_key,
+            base_url=base_url,
+            ollama_url=ollama_url,
+            timeout=180.0,
+        )
+    except (ValueError, FileNotFoundError) as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=1)
+    except httpx.HTTPStatusError as e:
+        body = (e.response.text or "")[:500]
+        console.print(f"[red]Error HTTP {e.response.status_code}:[/red] {body}")
+        raise typer.Exit(code=1)
+    except httpx.RequestError as e:
+        console.print(f"[red]Error de red:[/red] {e}")
+        raise typer.Exit(code=1)
+    except RuntimeError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=1)
+    if output:
+        output.write_text(text + "\n", encoding="utf-8")
+        console.print(f"[green]Guardado en[/green] {output}")
+    console.print(text)
 
 
 @app.command()
