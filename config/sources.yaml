@@ -1,0 +1,19 @@
+# Fuentes de ejemplo — sustituye o amplía con tus blogs/sitios (URLs de feed RSS/Atom).
+
+sources:
+  - name: "OpenAI Blog"
+    feed_url: "https://openai.com/blog/rss.xml"
+  - name: "Google AI Blog"
+    feed_url: "https://blog.google/technology/ai/rss/"
+  - name: "HuggingFace Blog"
+    feed_url: "https://huggingface.co/blog/feed.xml"
+  - name: "Agentes IA"
+    feed_url: "https://www.agentes.ai/blog/rss.xml"
+  - name: "Europa Press"
+    feed_url: "https://www.europapress.es/rss/rss.aspx?buscar=inteligencia-artificial"
+
+# Scripts en external/ que generan un XML RSS; se ejecutan en cada `ianews fetch`.
+external_scripts:
+  - name: "Noticias.ai"
+    argv: [python3, external/noticias_ai_rss.py]
+    xml: external/noticias-ai-feed.xml

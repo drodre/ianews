@@ -1,0 +1,30 @@
+# Copia a config/sources.yaml y ajusta. Cada fuente necesita una URL de feed RSS/Atom,
+# o site_url para intentar descubrir el feed desde la página principal.
+
+sources:
+  - name: "OpenAI Blog"
+    feed_url: "https://openai.com/blog/rss.xml"
+  - name: "Google AI Blog"
+    feed_url: "https://blog.google/technology/ai/rss/"
+  - name: "DeepMind"
+    site_url: "https://deepmind.google/blog/"
+    # Si site_url no descubre feed, define feed_url explícitamente.
+
+# Palabras clave (opcional): solo se guardan entradas que coincidan con al menos una.
+# Por defecto el código usa un conjunto razonable EN/ES si omites esta sección.
+# keywords:
+#   - "AI"
+#   - "artificial intelligence"
+#   - "machine learning"
+#   - "LLM"
+#   - "inteligencia artificial"
+
+# Opcional: ejecutar scripts que escriben un fichero RSS/Atom (sitios sin feed oficial).
+# Rutas en argv/xml son relativas al directorio desde el que lanzas `ianews fetch` (suele ser la raíz del repo).
+# El intérprete (python3) y dependencias del script (p. ej. requests, beautifulsoup4) deben estar en el PATH / venv.
+#
+# external_scripts:
+#   - name: "Noticias.ai"
+#     argv: [python3, external/noticias_ai_rss.py]
+#     xml: external/noticias-ai-feed.xml
+#     # cwd: external   # opcional: directorio de trabajo del subprocess
